@@ -9,6 +9,7 @@ edition = "2021"
 warp = "0.3"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
+url = "2.4.0"
 
 [[bin]]
 name = "rust-webhook"
