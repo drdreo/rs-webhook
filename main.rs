@@ -51,7 +51,7 @@ fn get_ids_from_url(url: &str) -> Option<(u64, u64)> {
     if parsed_url.path().starts_with(prefix) {
         let segments = parsed_url.path_segments()?.collect::<Vec<_>>();
 
-        // segments  ["creatives", "12", "6666", "preview"]
+        // segments  ["creatives", "12", "6666", "preview", ...]
         if segments.len() >= 3 && segments[0] == "creatives" {
             if let (Ok(id1), Ok(id2)) = (segments[1].parse::<u64>(), segments[2].parse::<u64>()) {
                 return Some((id1, id2));
