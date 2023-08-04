@@ -1,46 +1,37 @@
-use std::env;
-use std::net::Ipv4Addr;
+use console_error_panic_hook;
 use url::Url;
-use warp::{http::Response, Filter};
+use worker::*;
 
 mod slack;
 use slack::LinkSharedEvent;
 
-#[tokio::main]
-async fn main() {
-    let auth_route = warp::get()
-        .and(warp::path::end())
-        .map(|| Response::builder().body(String::from("This is the GET route response.")));
+// https://github.com/cloudflare/workers-rs
 
-    let hook_route = warp::post()
-        .and(warp::path::end())
-        .and(warp::body::json())
-        .map(|evt: LinkSharedEvent| {
-            println!("Received event");
+#[event(fetch)]
+pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
+    console_error_panic_hook::set_once();
 
+    let router = Router::new();
+
+    router
+        .get_async("/", |_req, _ctx| async move {
+            console_log!("hallo");
+            Response::ok("Get received")
+        })
+        .post_async("/", |mut req, _ctx| async move {
+            let body: LinkSharedEvent = req.json().await?;
+            console_log!("Received JSON: {:?}", body);
             let mut response_msg = String::from("Link object received successfully. Got IDs: ");
-
-            for link in evt.event.links {
+            for link in body.event.links {
                 // Parse the shared links and get the creativeset and creative id
                 if let Some(ids) = get_ids_from_url(&link.url) {
                     response_msg.push_str(&format!(", {:?}", ids));
                 }
             }
 
-            Response::builder().body(response_msg)
-        });
-
-    let combined_routes = auth_route.or(hook_route);
-
-    let port_key = "FUNCTIONS_CUSTOMHANDLER_PORT";
-    let port: u16 = match env::var(port_key) {
-        Ok(val) => val.parse().expect("Custom Handler port is not a number!"),
-        Err(_) => 3000,
-    };
-
-    println!("Starting server on {:?}:{:?}", Ipv4Addr::LOCALHOST, port);
-    warp::serve(combined_routes)
-        .run((Ipv4Addr::LOCALHOST, port))
+            Response::ok(format!("JSON data logged successfully {:?}", response_msg))
+        })
+        .run(req, env)
         .await
 }
 

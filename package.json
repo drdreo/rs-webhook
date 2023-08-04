@@ -1,0 +1,11 @@
+{
+    "scripts": {
+        "gen": "wrangler generate --type=rust rust-hook",
+        "dev": "wrangler dev",
+        "dev:remote": "wrangler dev --remote",
+        "publish": "npx wrangler publish"
+    },
+    "dependencies": {
+        "wrangler": "^3.4.0"
+    }
+}
