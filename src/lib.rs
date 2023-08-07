@@ -113,7 +113,7 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent, env: Env) -> Result<(
         }
     }
 
-    console_log!("Unfurl request received successfully. {:?}", response_msg);
+    console_log!("Unfurl request received successfully. {}", response_msg);
     Ok(())
 }
 
@@ -141,7 +141,7 @@ async fn send_slack_unfurl_request(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"])
+                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"].to_string())
                         },
                         {
                             "type": "mrkdwn",
@@ -149,7 +149,7 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Brand:*\n{}", meta["brand"])
+                            "text": format!("*Brand:*\n{}", meta["brand"].to_string())
                         },
                         {
                             "type": "mrkdwn",
@@ -172,7 +172,7 @@ async fn send_slack_unfurl_request(
                         },
                         "url": format!(
                             "https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
-                            meta["brand"],
+                            meta["brand"].to_string(),
                             creativeset
                         ),
                         "action_id": "button-action",
@@ -185,7 +185,7 @@ async fn send_slack_unfurl_request(
                         "text": format!("{} - {}", creativeset, creative),
                         "emoji": true,
                     },
-                    "image_url": get_image_url(meta["preloadImage"].as_str().unwrap_or_default()),
+                    "image_url": get_image_url(meta["preloadImage"].to_string()),
                     "alt_text": "preload image",
                 },
             ],
@@ -196,6 +196,8 @@ async fn send_slack_unfurl_request(
         "ts": event.event.message_ts,
         "unfurls": shared_links,
     });
+
+    console_log!("Unfurl data: {}", res_body);
 
     let bot_token = env
         .secret("BOT_TOKEN")
@@ -221,6 +223,6 @@ async fn send_slack_unfurl_request(
     Ok(())
 }
 
-fn get_image_url(url: &str) -> String {
-    format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={:?}&w=200&h=200&q=85&f=webp&rt=contain", url)
+fn get_image_url(url: String) -> String {
+    format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
 }
