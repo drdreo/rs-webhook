@@ -2,7 +2,7 @@
     "scripts": {
         "dev": "wrangler dev",
         "dev:remote": "wrangler dev --remote",
-        "publish": "npx wrangler publish"
+        "deploy": "npx wrangler deploy"
     },
     "dependencies": {
         "wrangler": "^3.4.0"
