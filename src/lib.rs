@@ -1,9 +1,9 @@
 use console_error_panic_hook;
-use url::Url;
-use worker::*;
-
 use reqwest;
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use url::Url;
+use worker::*;
 
 mod slack;
 use slack::LinkSharedEvent;
@@ -125,8 +125,8 @@ async fn send_slack_unfurl_request(
     creative: u64,
     env: Env,
 ) -> Result<()> {
-    let unfurls = json!({
-        shared_link: {
+    let mut shared_links: HashMap<String, Value> = HashMap::new();
+    shared_links.insert(shared_link.to_string(), json!({
             "blocks": [
                 {
                     "type": "header",
@@ -189,13 +189,12 @@ async fn send_slack_unfurl_request(
                     "alt_text": "preload image",
                 },
             ],
-        },
-    });
+        }));
 
     let res_body = json!({
         "channel": event.event.channel,
         "ts": event.event.message_ts,
-        "unfurls": unfurls,
+        "unfurls": shared_links,
     });
 
     let bot_token = env
