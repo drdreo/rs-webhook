@@ -1,5 +1,3 @@
-use std::env;
-
 use console_error_panic_hook;
 use url::Url;
 use worker::*;
@@ -14,7 +12,7 @@ use slack::UrlVerificationEvent;
 
 // https://github.com/cloudflare/workers-rs
 #[event(fetch)]
-pub async fn main(mut req: Request, _env: Env, _ctx: worker::Context) -> Result<Response> {
+pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     console_error_panic_hook::set_once();
 
     let method = &req.method();
@@ -31,7 +29,9 @@ pub async fn main(mut req: Request, _env: Env, _ctx: worker::Context) -> Result<
                 Ok(event) => match event {
                     SlackEvent::UrlVerification(auth_evt) => Response::ok(auth_evt.challenge),
                     SlackEvent::LinkShared(share_evt) => {
-                        handle_link_shared_event(share_evt.clone()).await.unwrap();
+                        handle_link_shared_event(share_evt.clone(), env)
+                            .await
+                            .unwrap();
                         Response::ok(share_evt.token) // Return the early response
                     }
                 },
@@ -82,7 +82,7 @@ fn is_slack_link_shared_event(headers: &Headers, json: &Value) -> bool {
     headers.has("x-slack-request-timestamp").unwrap() && json.get("event").is_some()
 }
 
-async fn handle_link_shared_event(ls_evt: LinkSharedEvent) -> Result<()> {
+async fn handle_link_shared_event(ls_evt: LinkSharedEvent, env: Env) -> Result<()> {
     let mut response_msg = String::from("Link object received successfully. Got IDs: ");
 
     let link = &ls_evt.event.links[0];
@@ -98,7 +98,7 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent) -> Result<()> {
                     let content = response.text().await.unwrap();
                     let meta: Value = serde_json::from_str(&content)?;
                     console_log!("Creative meta: {}", meta);
-                    send_slack_unfurl_request(meta, &link.url, &ls_evt, creativeset, creative)
+                    send_slack_unfurl_request(meta, &link.url, &ls_evt, creativeset, creative, env)
                         .await?;
                 } else {
                     console_error!("Request failed with status code: {}", response.status());
@@ -123,6 +123,7 @@ async fn send_slack_unfurl_request(
     event: &LinkSharedEvent,
     creativeset: u64,
     creative: u64,
+    env: Env,
 ) -> Result<()> {
     let unfurls = json!({
         shared_link: {
@@ -197,13 +198,14 @@ async fn send_slack_unfurl_request(
         "unfurls": unfurls,
     });
 
-    let bot_token = env::var("BOT_TOKEN")
-        .map_err(|_| worker::Error::from("BOT_TOKEN environment variable not found"))?;
+    let bot_token = env
+        .secret("BOT_TOKEN")
+        .expect("BOT_TOKEN environment variable not found");
 
     let res = reqwest::Client::new()
         .post("https://slack.com/api/chat.unfurl")
         .header("Content-Type", "application/json; charset=utf-8")
-        .header("Authorization", format!("Bearer {}", bot_token))
+        .header("Authorization", format!("Bearer {}", bot_token.to_string()))
         .json(&res_body)
         .send()
         .await
