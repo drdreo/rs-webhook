@@ -1,0 +1,10 @@
+{
+    "scripts": {
+        "dev": "wrangler dev",
+        "dev:remote": "wrangler dev --remote",
+        "publish": "npx wrangler publish"
+    },
+    "dependencies": {
+        "wrangler": "^3.4.0"
+    }
+}
