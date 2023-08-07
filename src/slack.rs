@@ -13,14 +13,14 @@ pub struct UrlVerificationEvent {
 pub struct LinkSharedEvent {
     pub token: String,
     #[serde(rename = "team_id")]
-    pub team_id: String,
+    pub team_id: Option<String>,
     #[serde(rename = "api_app_id")]
     pub api_app_id: String,
     pub event: Event,
     #[serde(rename = "type")]
     pub type_field: String,
     #[serde(rename = "authed_users")]
-    pub authed_users: Vec<String>,
+    pub authed_users: Option<Vec<String>>,
     #[serde(rename = "event_id")]
     pub event_id: String,
     #[serde(rename = "event_time")]
@@ -35,13 +35,13 @@ pub struct Event {
     pub channel: String,
     #[serde(rename = "is_bot_user_member")]
     pub is_bot_user_member: bool,
-    pub user: String,
+    pub user: Option<String>,
     #[serde(rename = "message_ts")]
     pub message_ts: String,
     #[serde(rename = "unfurl_id")]
     pub unfurl_id: String,
     #[serde(rename = "thread_ts")]
-    pub thread_ts: String,
+    pub thread_ts: Option<String>,
     pub source: String,
     pub links: Vec<Link>,
 }

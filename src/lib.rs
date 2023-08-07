@@ -31,7 +31,7 @@ pub async fn main(mut req: Request, _env: Env, _ctx: worker::Context) -> Result<
                 Ok(event) => match event {
                     SlackEvent::UrlVerification(auth_evt) => Response::ok(auth_evt.challenge),
                     SlackEvent::LinkShared(share_evt) => {
-                        handle_link_shared_event(share_evt.clone()).await.unwrap(); // intentionally not awaiting
+                        handle_link_shared_event(share_evt.clone()).await.unwrap();
                         Response::ok(share_evt.token) // Return the early response
                     }
                 },
