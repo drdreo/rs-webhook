@@ -1,6 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UrlVerificationEvent {
+    pub token: String,
+    pub challenge: String,
+    #[serde(rename = "type")]
+    pub type_field: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LinkSharedEvent {
     pub token: String,
@@ -43,4 +51,10 @@ pub struct Event {
 pub struct Link {
     pub domain: String,
     pub url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SlackEvent {
+    UrlVerification(UrlVerificationEvent),
+    LinkShared(LinkSharedEvent),
 }
