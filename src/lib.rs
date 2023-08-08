@@ -141,7 +141,7 @@ async fn send_slack_unfurl_request(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"].to_string())
+                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"].as_str().unwrap())
                         },
                         {
                             "type": "mrkdwn",
@@ -149,7 +149,7 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Brand:*\n{}", meta["brand"].to_string())
+                            "text": format!("*Brand:*\n{}", meta["brand"].as_str().unwrap())
                         },
                         {
                             "type": "mrkdwn",
@@ -172,7 +172,7 @@ async fn send_slack_unfurl_request(
                         },
                         "url": format!(
                             "https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
-                            meta["brand"].to_string(),
+                            meta["brand"].as_str().unwrap(),
                             creativeset
                         ),
                         "action_id": "button-action",
@@ -185,7 +185,7 @@ async fn send_slack_unfurl_request(
                         "text": format!("{} - {}", creativeset, creative),
                         "emoji": true,
                     },
-                    "image_url": get_image_url(meta["preloadImage"].to_string()),
+                    "image_url": get_image_url(meta["preloadImage"].as_str().unwrap()),
                     "alt_text": "preload image",
                 },
             ],
@@ -223,6 +223,6 @@ async fn send_slack_unfurl_request(
     Ok(())
 }
 
-fn get_image_url(url: String) -> String {
+fn get_image_url(url: &str) -> String {
     format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
 }
