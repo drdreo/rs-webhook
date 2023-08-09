@@ -149,11 +149,19 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
+                            "text": format!("*Size:*\n{} x {}", meta["size"]["width"].as_str().unwrap(), meta["size"]["height"].as_str().unwrap())
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": format!("*Version:* {}", meta["version"].as_str().unwrap())
+                        },
+                        {
+                            "type": "mrkdwn",
                             "text": format!("*Brand:*\n{}", meta["brand"].as_str().unwrap())
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Elements:* {}", meta["elements"])
+                            "text": format!("*Elements:* {}\n*Weight:* {}", meta["elements"], meta["weight"])
                         }
                     ],
                 },
