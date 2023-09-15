@@ -1,11 +1,9 @@
-use std::env;
-
 use console_error_panic_hook;
-use url::Url;
-use worker::*;
-
 use reqwest;
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use url::Url;
+use worker::*;
 
 mod slack;
 use slack::LinkSharedEvent;
@@ -14,7 +12,7 @@ use slack::UrlVerificationEvent;
 
 // https://github.com/cloudflare/workers-rs
 #[event(fetch)]
-pub async fn main(mut req: Request, _env: Env, _ctx: worker::Context) -> Result<Response> {
+pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     console_error_panic_hook::set_once();
 
     let method = &req.method();
@@ -31,7 +29,9 @@ pub async fn main(mut req: Request, _env: Env, _ctx: worker::Context) -> Result<
                 Ok(event) => match event {
                     SlackEvent::UrlVerification(auth_evt) => Response::ok(auth_evt.challenge),
                     SlackEvent::LinkShared(share_evt) => {
-                        handle_link_shared_event(share_evt.clone()).await.unwrap();
+                        handle_link_shared_event(share_evt.clone(), env)
+                            .await
+                            .unwrap();
                         Response::ok(share_evt.token) // Return the early response
                     }
                 },
@@ -82,7 +82,7 @@ fn is_slack_link_shared_event(headers: &Headers, json: &Value) -> bool {
     headers.has("x-slack-request-timestamp").unwrap() && json.get("event").is_some()
 }
 
-async fn handle_link_shared_event(ls_evt: LinkSharedEvent) -> Result<()> {
+async fn handle_link_shared_event(ls_evt: LinkSharedEvent, env: Env) -> Result<()> {
     let mut response_msg = String::from("Link object received successfully. Got IDs: ");
 
     let link = &ls_evt.event.links[0];
@@ -98,7 +98,7 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent) -> Result<()> {
                     let content = response.text().await.unwrap();
                     let meta: Value = serde_json::from_str(&content)?;
                     console_log!("Creative meta: {}", meta);
-                    send_slack_unfurl_request(meta, &link.url, &ls_evt, creativeset, creative)
+                    send_slack_unfurl_request(meta, &link.url, &ls_evt, creativeset, creative, env)
                         .await?;
                 } else {
                     console_error!("Request failed with status code: {}", response.status());
@@ -113,7 +113,7 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent) -> Result<()> {
         }
     }
 
-    console_log!("Unfurl request received successfully. {:?}", response_msg);
+    console_log!("Unfurl request received successfully. {}", response_msg);
     Ok(())
 }
 
@@ -123,9 +123,10 @@ async fn send_slack_unfurl_request(
     event: &LinkSharedEvent,
     creativeset: u64,
     creative: u64,
+    env: Env,
 ) -> Result<()> {
-    let unfurls = json!({
-        shared_link: {
+    let mut shared_links: HashMap<String, Value> = HashMap::new();
+    shared_links.insert(shared_link.to_string(), json!({
             "blocks": [
                 {
                     "type": "header",
@@ -140,7 +141,7 @@ async fn send_slack_unfurl_request(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"])
+                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"].as_str().unwrap())
                         },
                         {
                             "type": "mrkdwn",
@@ -148,11 +149,19 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Brand:*\n{}", meta["brand"])
+                            "text": format!("*Size:*\n{} x {}", meta["size"]["width"], meta["size"]["height"])
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Elements:* {}", meta["elements"])
+                            "text": format!("*Version:*\n{}", meta["version"].as_str().unwrap())
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": format!("*Brand:*\n{}", meta["brand"].as_str().unwrap())
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": format!("*Elements:* {}\n*Weight:* {}", meta["elements"], meta["weight"])
                         }
                     ],
                 },
@@ -171,7 +180,7 @@ async fn send_slack_unfurl_request(
                         },
                         "url": format!(
                             "https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
-                            meta["brand"],
+                            meta["brand"].as_str().unwrap(),
                             creativeset
                         ),
                         "action_id": "button-action",
@@ -184,26 +193,28 @@ async fn send_slack_unfurl_request(
                         "text": format!("{} - {}", creativeset, creative),
                         "emoji": true,
                     },
-                    "image_url": get_image_url(meta["preloadImage"].as_str().unwrap_or_default()),
+                    "image_url": get_image_url(meta["preloadImage"].as_str().unwrap()),
                     "alt_text": "preload image",
                 },
             ],
-        },
-    });
+        }));
 
     let res_body = json!({
         "channel": event.event.channel,
         "ts": event.event.message_ts,
-        "unfurls": unfurls,
+        "unfurls": shared_links,
     });
 
-    let bot_token = env::var("BOT_TOKEN")
-        .map_err(|_| worker::Error::from("BOT_TOKEN environment variable not found"))?;
+    console_log!("Unfurl data: {}", res_body);
+
+    let bot_token = env
+        .secret("BOT_TOKEN")
+        .expect("BOT_TOKEN environment variable not found");
 
     let res = reqwest::Client::new()
         .post("https://slack.com/api/chat.unfurl")
         .header("Content-Type", "application/json; charset=utf-8")
-        .header("Authorization", format!("Bearer {}", bot_token))
+        .header("Authorization", format!("Bearer {}", bot_token.to_string()))
         .json(&res_body)
         .send()
         .await
@@ -221,5 +232,5 @@ async fn send_slack_unfurl_request(
 }
 
 fn get_image_url(url: &str) -> String {
-    format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={:?}&w=200&h=200&q=85&f=webp&rt=contain", url)
+    format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
 }
