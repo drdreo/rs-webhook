@@ -90,7 +90,14 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent, env: Env) -> Result<(
     if let Some((creativeset, creative)) = get_ids_from_url(&link.url) {
         response_msg.push_str(&format!(", {:?}", (creativeset, creative)));
 
-        let url = format!("https://bf-studio-acg-sandbox-cobe-1496.azurewebsites.net/preview-meta?creativeset={:?}&creative={:?}", creativeset, creative);
+        // check if the link is referencing sandbox or production and use proper ACG instance
+        // TODO: add snapshot it here
+        let url = if link.url.contains("sandbox-studio.bannerflow.com") {
+            format!("https://sandbox-studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}", creativeset, creative)
+        } else {
+            format!("https://studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}", creativeset, creative)
+        };
+
         let response = reqwest::get(&url).await;
         match response {
             Ok(response) => {
@@ -126,6 +133,20 @@ async fn send_slack_unfurl_request(
     env: Env,
 ) -> Result<()> {
     let mut shared_links: HashMap<String, Value> = HashMap::new();
+    let is_sandbox = shared_link.contains("sandbox-studio.bannerflow.com");
+
+     let mv_link = if is_sandbox {
+            format!("https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
+                    meta["brand"].as_str().unwrap(),
+                    creativeset
+            )
+        } else {
+            format!("https://studio.bannerflow.com/brand/{}/creativeset/{}",
+                    meta["brand"].as_str().unwrap(),
+                    creativeset
+            )
+     };
+
     shared_links.insert(shared_link.to_string(), json!({
             "blocks": [
                 {
@@ -141,7 +162,7 @@ async fn send_slack_unfurl_request(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Creativeset:*\n{} - {}", creativeset, meta["creativeset"].as_str().unwrap())
+                            "text": format!("*Creativeset:* {}\n{}", meta["creativeset"], creativeset)
                         },
                         {
                             "type": "mrkdwn",
@@ -161,7 +182,7 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Elements:* {}\n*Weight:* {}", meta["elements"], meta["weight"])
+                            "text": format!("*Elements:* {}\n*Duration:* {}", meta["elements"], meta["duration"])
                         }
                     ],
                 },
@@ -178,11 +199,7 @@ async fn send_slack_unfurl_request(
                             "text": "Go To MV",
                             "emoji": true
                         },
-                        "url": format!(
-                            "https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
-                            meta["brand"].as_str().unwrap(),
-                            creativeset
-                        ),
+                        "url": mv_link,
                         "action_id": "button-action",
                     },
                 },
@@ -232,5 +249,5 @@ async fn send_slack_unfurl_request(
 }
 
 fn get_image_url(url: &str) -> String {
-    format!("https://c.sandbox-bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
+    format!("https://c.bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
 }
