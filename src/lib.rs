@@ -135,17 +135,19 @@ async fn send_slack_unfurl_request(
     let mut shared_links: HashMap<String, Value> = HashMap::new();
     let is_sandbox = shared_link.contains("sandbox-studio.bannerflow.com");
 
-     let mv_link = if is_sandbox {
-            format!("https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
-                    meta["brand"].as_str().unwrap(),
-                    creativeset
-            )
-        } else {
-            format!("https://studio.bannerflow.com/brand/{}/creativeset/{}",
-                    meta["brand"].as_str().unwrap(),
-                    creativeset
-            )
-     };
+    let mv_link = if is_sandbox {
+        format!(
+            "https://sandbox-studio.bannerflow.com/brand/{}/creativeset/{}",
+            meta["brand"].as_str().unwrap(),
+            creativeset
+        )
+    } else {
+        format!(
+            "https://studio.bannerflow.com/brand/{}/creativeset/{}",
+            meta["brand"].as_str().unwrap(),
+            creativeset
+        )
+    };
 
     shared_links.insert(shared_link.to_string(), json!({
             "blocks": [
@@ -249,5 +251,8 @@ async fn send_slack_unfurl_request(
 }
 
 fn get_image_url(url: &str) -> String {
-    format!("https://c.bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain", url)
+    format!(
+        "https://c.bannerflow.net/io/api/image/optimize?u={}&w=200&h=200&q=85&f=webp&rt=contain",
+        url
+    )
 }
