@@ -16,12 +16,10 @@ pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> Result<R
     console_error_panic_hook::set_once();
 
     let method = &req.method();
-
     match method {
         Method::Get => Response::ok("GET /"),
         Method::Post => {
             let json = req.text().await?;
-
             let event = parse_slack_event(req.headers(), json);
             console_log!("Received JSON: {:?}", event);
 
