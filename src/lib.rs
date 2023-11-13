@@ -40,9 +40,11 @@ pub async fn main(mut req: Request, env: Env, _ctx: worker::Context) -> Result<R
     }
 }
 
-fn get_ids_from_url(url: &str) -> Option<(u64, u64)> {
+fn get_ids_and_token_from_url(url: &str) -> Option<(u64, u64, &String)> {
     let prefix = "/creatives";
     let parsed_url = Url::parse(url).ok()?;
+    let hash_query: HashMap<_, _> = parsed_url.query_pairs().into_owned().collect();
+    let access_token = hash_query.get("access-token")?;
 
     if parsed_url.path().starts_with(prefix) {
         let segments = parsed_url.path_segments()?.collect::<Vec<_>>();
@@ -50,7 +52,7 @@ fn get_ids_from_url(url: &str) -> Option<(u64, u64)> {
         // segments  ["creatives", "12", "6666", "preview", ...]
         if segments.len() >= 3 && segments[0] == "creatives" {
             if let (Ok(id1), Ok(id2)) = (segments[1].parse::<u64>(), segments[2].parse::<u64>()) {
-                return Some((id1, id2));
+                return Some((id1, id2, access_token));
             }
         }
     }
@@ -85,15 +87,15 @@ async fn handle_link_shared_event(ls_evt: LinkSharedEvent, env: Env) -> Result<(
 
     let link = &ls_evt.event.links[0];
     // Parse the shared links and get the creativeset and creative id
-    if let Some((creativeset, creative)) = get_ids_from_url(&link.url) {
+    if let Some((creativeset, creative, access_token)) = get_ids_and_token_from_url(&link.url) {
         response_msg.push_str(&format!(", {:?}", (creativeset, creative)));
 
         // check if the link is referencing sandbox or production and use proper ACG instance
         // TODO: add snapshot it here
         let url = if link.url.contains("sandbox-studio.bannerflow.com") {
-            format!("https://sandbox-studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}", creativeset, creative)
+            format!("https://sandbox-studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}&access-token={:?}", creativeset, creative, access_token)
         } else {
-            format!("https://studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}", creativeset, creative)
+            format!("https://studio.bannerflow.com/creatives/creative-metadata?creativeset={:?}&creative={:?}&access-token={:?}", creativeset, creative, access_token)
         };
 
         let response = reqwest::get(&url).await;
@@ -153,7 +155,7 @@ async fn send_slack_unfurl_request(
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": "Creative Preview - Bannerflow",
+                        "text": "Creative Preview",
                         "emoji": true
                     }
                 },
@@ -182,7 +184,7 @@ async fn send_slack_unfurl_request(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": format!("*Elements:* {}\n*Duration:* {}", meta["elements"], meta["duration"])
+                            "text": format!("*Elements:* {}\n*Duration:* {}s", meta["elements"], meta["duration"])
                         }
                     ],
                 },
